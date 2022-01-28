@@ -20,40 +20,33 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     }
     private void Start()
     {
-        PhotonNetwork.ConnectUsingSettings();
+    
     }
-    public void CreateRoom(string roomName) {
-        PhotonNetwork.CreateRoom(roomName);
-    }
-    public void JoinRoom(string roomName) {
-        PhotonNetwork.JoinRoom(roomName);
-    }
-
-    [PunRPC] // all player call changeScene when game starts
-    public void ChangeScene(string sceneName) {
-        PhotonNetwork.LoadLevel(sceneName);
-    }
-
-    //public override void OnConnectedToMaster()
-    //{
-    //    Debug.Log("connected to server");
-    //    CreateRoom("testRoom");
+    //public void CreateRoom(string roomName) {
+    //    PhotonNetwork.CreateRoom(roomName);
     //}
-    public override void OnCreatedRoom()
-    {
-        base.OnCreatedRoom();
-        Debug.Log("server create room: " + PhotonNetwork.CurrentRoom.Name);
-    }
+    //public void JoinRoom(string roomName) {
+    //    PhotonNetwork.JoinRoom(roomName);
+    //}
 
-    public override void OnJoinedRoom()
-    {
-        base.OnJoinedRoom();
-    }
+    //[PunRPC] // all player call changeScene when game starts
+    //public void ChangeScene(string sceneName) {
+    //    PhotonNetwork.LoadLevel(sceneName);
+    //}
 
+    ////public override void OnConnectedToMaster()
+    ////{
+    ////    Debug.Log("connected to server");
+    ////    CreateRoom("testRoom");
+    ////}
+    //public override void OnCreatedRoom()
+    //{
+    //    base.OnCreatedRoom();
+    //    Debug.Log("server create room: " + PhotonNetwork.CurrentRoom.Name);
+    //}
 
-
-
-
-
-
+    //public override void OnJoinedRoom()
+    //{
+    //    base.OnJoinedRoom();
+    //}
 }

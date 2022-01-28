@@ -64,8 +64,8 @@ namespace Photon.Pun.Demo.Asteroids
 
         public override void OnRoomListUpdate(List<RoomInfo> roomList)
         {
+            Debug.Log("OnRoomListUpdate : " +  roomList.Count);
             ClearRoomListView();
-
             UpdateCachedRoomList(roomList);
             UpdateRoomListView();
         }

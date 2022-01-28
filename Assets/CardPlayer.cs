@@ -5,23 +5,22 @@ using UnityEngine.Events;
 using TMPro;
 using UnityEngine.UI;
 using System;
+using Photon.Pun;
+using Photon.Realtime;
 
 
-public class Player : MonoBehaviour
+public class CardPlayer : CardHandler
 {
-   
-    public UnityEvent BetCompleteEvent;
+   [HideInInspector] public int id;
+    Player photonPlayer;
+    
     public string playerName;
-    GameManager gManager;
-
-
+    public UnityEvent BetCompleteEvent;
     int coinCount;
     int betAmount;
-
-    List<GameManager.Card> cardList = new List<GameManager.Card>();
-    int redCount = 0;
-    int greenCount = 0;
     bool isButtonsActive = false;
+
+    [SerializeField] TablePlayer tablePlayer;
 
     #region UI
     [Space(10)]
@@ -36,31 +35,43 @@ public class Player : MonoBehaviour
     [SerializeField] Color offButtonColour;
     [SerializeField] Color onButtonColour;
 
-
     #endregion
     // Start is called before the first frame update
-    private void Awake()
+
+    protected override void Start()
     {
-        gManager = FindObjectOfType<GameManager>();
-        gManager.NewGameRound.AddListener(GameReset);
-        
-    }
-    private void Start()
-    {
-        gManager.PlayerDrawCards(cardList, cardHolderTrans, ref redCount, ref greenCount);
+        base.Start();
         ResetChips();
-        ToggleButtons(true);
+
+        tablePlayer.Setup(coinCount);
+
     }
     private void ResetChips()
     {
-        coinCount = gManager.maxChipCount;
+        coinCount = GameManager.Instance.maxChipCount;
         UpdateCoinText();
     }
-
-    void GameReset() {
+    protected override void GameReset()
+    {
         ToggleButtons(true);
-        gManager.PlayerDrawCards(cardList, cardHolderTrans, ref redCount, ref greenCount);
+        DrawCards(GameManager.Instance.playerDrawCount);
+     //   tablePlayer.ClearBet();
     }
+    #region Buttons
+    public void ConfirmBet() {
+        if (betAmount <= 0)
+            return;
+        ToggleButtons(false);
+        GameManager.Instance.CheckAllBetsIn();
+    }
+    public void AddBet() {
+        Bet(GameManager.Instance.betInterval);
+    }
+    public void SubtractBet()
+    {
+        Bet(-GameManager.Instance.betInterval);
+    }
+
     public void ToggleButtons()
     {
         isButtonsActive = !isButtonsActive;
@@ -70,42 +81,33 @@ public class Player : MonoBehaviour
         confirmButton.enabled = isButtonsActive;
         addButton.image.color = subButton.image.color = confirmButton.image.color = buttonColour;
     }
-    public void ToggleButtons(bool isOn) {
+    public void ToggleButtons(bool isOn)
+    {
         isButtonsActive = isOn;
-        Color buttonColour = isButtonsActive ? onButtonColour : offButtonColour;
-        subButton.enabled = isButtonsActive;
-        addButton.enabled = isButtonsActive;
-        confirmButton.enabled = isButtonsActive;
-        addButton.image.color = subButton.image.color = confirmButton.image.color = buttonColour;
+        // Color buttonColour = isButtonsActive ? onButtonColour : offButtonColour;
+        subButton.interactable = isButtonsActive;
+        addButton.interactable = isButtonsActive;
+        confirmButton.interactable = isButtonsActive;
+        // addButton.image.color = subButton.image.color = confirmButton.image.color = buttonColour;
     }
+    #endregion
 
-    void UpdateCoinText() {
+    void UpdateCoinText()
+    {
         coinTxt.text = "Coin: " + coinCount;
         betTxt.text = "Bet: " + betAmount;
     }
-    void Bet(int betValue) {
-        if ((Mathf.Sign(betValue) == 1 && coinCount >= betValue)||
+    void Bet(int betValue)
+    {
+        if ((Mathf.Sign(betValue) == 1 && coinCount >= betValue) ||
            (Mathf.Sign(betValue) == -1 && betAmount >= Mathf.Abs(betValue)))
         {
+          
             coinCount -= betValue;
             betAmount += betValue;
+            tablePlayer.Bet(coinCount, betAmount);
         }
         UpdateCoinText();
-    }
-    public void ConfirmBet() {
-        if (betAmount <= 0)
-            return;
-
-        ToggleButtons(false);
-        gManager.CheckAllBetsIn();
-    }
-
-    public void AddBet() {
-        Bet(gManager.betInterval);
-    }
-    public void SubtractBet()
-    {
-        Bet(-gManager.betInterval);
     }
 
     void Win() {
@@ -122,9 +124,9 @@ public class Player : MonoBehaviour
         }
         betAmount = 0;
     }
-    public bool CheckWinLose(GameManager.CardSuit winCardSuit) {
+    public bool CheckWinLose(CardSuit winCardSuit) {
 
-        GameManager.CardSuit cardSuit = redCount > greenCount ? GameManager.CardSuit.Red : GameManager.CardSuit.Green;
+        CardSuit cardSuit = GetWinningSuit();
         Debug.Log(playerName + " | " + cardSuit);
         bool isWin = false;
         if (cardSuit == winCardSuit)
@@ -138,7 +140,7 @@ public class Player : MonoBehaviour
             isWin = false;
         }
         UpdateCoinText();
+        tablePlayer.ClearBet(coinCount);
         return isWin;
     }
-
 }
