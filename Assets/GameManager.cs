@@ -7,108 +7,253 @@ using UnityEngine.UI;
 using Photon.Pun;
 using Photon.Realtime;
 using System.Linq;
-
-
+using UnityEngine.SceneManagement;
 public class GameManager : MonoBehaviourPunCallbacks
 {
-    //public class Card
-    //{
-    //    public CardSuit cardSuit;
-    //    public Image cardImg;
-    //    public Card(CardSuit _cardSuit, Image _cardImg)
-    //    {
-    //        cardSuit = _cardSuit;
-    //        cardImg = _cardImg;
-    //        UpdateCardColour();
-    //    }
-
-    //    void UpdateCardColour()
-    //    {
-    //        cardImg.color = cardSuit == CardSuit.Red ? Color.red : Color.green;
-    //    }
-    //    public void RefreshCard()
-    //    {
-    //        cardSuit = (GameManager.CardSuit)Random.Range(0, 2);
-    //        UpdateCardColour();
-    //    }
-    //}
-    // public enum CardSuit {Red, Green};
+    [System.Serializable]
+    public class Chip
+    {
+        public int chipValue;
+        public Color chipColour;
+        [HideInInspector] public Material chipMaterial;
+        public void InitMaterial(Material cloneMaterial)
+        {
+            chipMaterial = new Material(cloneMaterial);
+            chipMaterial.color = chipColour;
+        }
+        public Chip(int _chipValue, Color _chipColour)
+        {
+            chipValue = _chipValue;
+            chipColour = _chipColour;
+        }
+    }
     public static GameManager Instance;
-
     public Image cardIMG;
+    [SerializeField] Material chipMaterial;
+    [SerializeField] TextMeshProUGUI resultTxt;
+    public UnityEvent OnGameReset;
+    public UnityEvent OnBetRoundEnd;
+
 
     [Header("dealer")]
     public int dealerDrawCount;
-    public UnityEvent NewGameRound;
     public Dealer dealer;
+    public List<Chip> chipList = new List<Chip>();
+    public float revealCardCount = 2;
+    float currentRevealCount = 0;
 
     [Header("Player")]
-    public int maxChipCount = 100;
-    public int betInterval = 10;
+    public int startChipCount = 100;
+    public int betIncrement = 10;
     public int playerDrawCount = 3;
-
-    [Header("Photon")]
-    public string playerPrefabLocation;
-    int playersInGame;
-    [SerializeField] List<CardPlayer> playerList = new List<CardPlayer>();
-
+    public CardPlayer myCardPlayer;
+    public List<TablePlayer> tableList;
 
     string winnerNames;
     int playersRdy = 0;
 
-    #region UI
-    [SerializeField] TextMeshProUGUI resultTxt;
-    #endregion
+    List<Player> joinedPlayer = new List<Player>();
+    List<Player> newJoinedPlayer = new List<Player>();
+
+    bool isGameStarted = false;
+    bool isMatchStarted = false;
+
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
             Destroy(gameObject);
         else
             Instance = this;
-        playerList = new List<CardPlayer>(FindObjectsOfType<CardPlayer>());
-        foreach (CardPlayer p in playerList)
-            p.Init();
         dealer.Init();
+
+        myCardPlayer.Init();
+        foreach (Chip c in chipList)
+        {
+            c.InitMaterial(chipMaterial);
+        }
     }
+
     private void Start()
     {
-        GameReset();
+        photonView.RPC(nameof(RPCPlayerJoinedGame), RpcTarget.AllBuffered, PhotonNetwork.LocalPlayer);
     }
-    public void CheckAllBetsIn() {
-        playersRdy++;
-        if (playersRdy >= playerList.Count) {
-            CheckBetResultPhase();
-            playersRdy = 0;
-        }
-    }
-    void CheckBetResultPhase()
-    {
-        winnerNames = "";
-        dealer.RevealCards();
-        CardSuit winSuit = dealer.GetWinningSuit();
-       // DrawCards(dealerCardList, dealerDrawCount, dealerCardContainerTrans, ref redCount, ref greenCount);
-       // CardSuit winSuit = (redCount > greenCount) ? CardSuit.Red : CardSuit.Green;
 
-        Debug.Log("CheckResultPhase : " + winSuit);
-        foreach (CardPlayer player in playerList)
+    /// <summary>
+    /// When player leaves the room, remove player from list, reset the table, and check if bets are ready.
+    /// </summary>
+    /// <param name="player"></param> photon player
+    public override void OnPlayerLeftRoom(Player player)
+    {
+        base.OnPlayerLeftRoom(player);
+        // Debug.Log("player " + player.ActorNumber + " left the room");
+        if (joinedPlayer.Contains(player))
         {
-            if (player.CheckWinLose(winSuit))
+            joinedPlayer.Remove(player);
+            for (int i = 0; i < tableList.Count; i++)
             {
-                winnerNames += player.playerName + "\n";
+                if (tableList[i].photonPlayer == player)
+                {
+                    tableList[i].LeaveTable();
+                }
+            }
+            if (PhotonNetwork.IsMasterClient)
+            {
+                RPCCheckAllBetsIn(false);
             }
         }
-        if (winnerNames != "")
-            resultTxt.text = "Winner! \n" + winnerNames;
-        else
-            resultTxt.text = "No Winner!"; 
-
-
-        Invoke(nameof(GameReset), 3);
     }
-    void GameReset() {
+    /// <summary>
+    /// When player joins a room, if game already started, put the player in queue  for next match. If not wait for host to setup all joined players
+    /// </summary>
+    /// <param name="newPlayer"></param>
+    [PunRPC]
+    void RPCPlayerJoinedGame(Player newPlayer)
+    {
+        if (!isGameStarted)
+        {
+            joinedPlayer.Add(newPlayer);
+            //Debug.Log("add Player | " + newPlayer.ActorNumber);
+            if (joinedPlayer.Count == PhotonNetwork.PlayerList.Length) // When all players join the room
+            {
+                if (PhotonNetwork.IsMasterClient)
+                {
+                    HostSetupPlayers();
+                    photonView.RPC(nameof(RPCGameReset), RpcTarget.All);
+                }
+            }
+        }
+        else if (PhotonNetwork.IsMasterClient)
+        {
+            newJoinedPlayer.Add(newPlayer);
+            foreach (var table in tableList)
+            {
+                if (table.isActiveTable)
+                {
+                    table.photonView.RPC(nameof(TablePlayer.RPCJoinTable), newPlayer, table.photonPlayer);
+                }
+            }
+        }
+    }
+    /// <summary>
+    /// host setup table for all players
+    /// </summary>
+    void HostSetupPlayers()
+    {
+        for (int i = 0; i < joinedPlayer.Count; i++)
+        {
+            for (int j = 0; j < tableList.Count; j++)
+            {
+                if (!tableList[j].isActiveTable)
+                {
+                    // Debug.Log("" + "Assign " + joinedPlayer[i].ActorNumber + " to " + tableList[j].gameObject.name);
+                    tableList[j].photonView.RPC(nameof(TablePlayer.RPCJoinTable), RpcTarget.AllBuffered, joinedPlayer[i]);
+                    break;
+                }
+            }
+        }
+    }
+    /// <summary>
+    /// Host setup up table for specific player
+    /// </summary>
+    /// <param name="p"></param>
+    void HostSetupPlayers(Player p)
+    {
+        for (int j = 0; j < tableList.Count; j++)
+        {
+            if (!tableList[j].isActiveTable)
+            {
+                // Debug.log("Assign " + p.ActorNumber + " to " + tableList[j].gameObject.name);
+                tableList[j].photonView.RPC(nameof(TablePlayer.RPCJoinTable), RpcTarget.AllBuffered, p);
+                break;
+            }
+        }
+    }
 
-        Debug.Log("game reset");
-        NewGameRound.Invoke();
+    /// <summary>
+    /// Check if all player bets are in, move to next betting round, or reset the game
+    /// </summary>
+    /// <param name="addPlayerRdy"></param>
+    [PunRPC]
+    public void RPCCheckAllBetsIn(bool addPlayerRdy)
+    {
+        if (addPlayerRdy)
+            playersRdy++;
+        if (playersRdy >= joinedPlayer.Count)
+        {
+            if (currentRevealCount < revealCardCount)
+            {
+                //Debug.Log("master end bet round");
+                photonView.RPC(nameof(RPCBetRoundEnd), RpcTarget.All);
+            }
+            else
+            {
+                photonView.RPC(nameof(RPCCheckBetResultPhase), RpcTarget.All);
+            }
+            playersRdy = 0;
+        }
+        //CheckBetResultPhase();
+    }
+    [PunRPC]
+    void RPCBetRoundEnd()
+    {
+        currentRevealCount++;
+        dealer.FlipCard();
+        OnBetRoundEnd.Invoke();
+    }
+    /// <summary>
+    /// Check win lose condition, reset the game in 3 seconds after check
+    /// </summary>
+    [PunRPC]
+    void RPCCheckBetResultPhase()
+    {
+        if (myCardPlayer.tablePlayer == null)
+            return;
+        dealer.RevealAllCards();
+        if (myCardPlayer.isFold)
+            resultTxt.text = "You Folded";
+        if (myCardPlayer.CheckWinLose())
+            resultTxt.text = "You Win";
+        else
+            resultTxt.text = "You Lose!";
+
+        isMatchStarted = false;
+        currentRevealCount = 0;
+        Invoke(nameof(ClientGameReset), 3);
+    }
+    void ClientGameReset()
+    {
+        if (PhotonNetwork.IsMasterClient)
+            photonView.RPC(nameof(RPCGameReset), RpcTarget.All);
+    }
+
+    /// <summary>
+    /// All clients reset their game. Host client add new joined player if they exist.
+    /// </summary>
+    [PunRPC]
+    void RPCGameReset()
+    {
+        //isGameStarted = true;
+        if (PhotonNetwork.IsMasterClient)
+        {
+            if (newJoinedPlayer.Count > 0)
+            {
+                foreach (Player p in newJoinedPlayer)
+                {
+                    HostSetupPlayers(p);
+                    joinedPlayer.Add(p);
+                }
+                newJoinedPlayer.Clear();
+            }
+        }
+        foreach (TablePlayer t in tableList)
+        {
+            if (t.isActiveTable)
+                t.ResetTableColour();
+        }
+        isGameStarted = true;
+        isMatchStarted = true;
+        OnGameReset.Invoke();
         resultTxt.text = "Place your bets!";
     }
 }

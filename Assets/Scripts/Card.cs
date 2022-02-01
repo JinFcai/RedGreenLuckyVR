@@ -27,9 +27,12 @@ public class Card
     {
         cardImg.color = cardSuit == CardSuit.Red ? Color.red : Color.green;
     }
-    public void RefreshCard(bool reveal = true)
+    public void RefreshCard(bool reveal = true, int cardColour = -1)
     {
-        cardSuit = (CardSuit)Random.Range(0, 2);
+        if (cardColour == -1)
+            cardSuit = (CardSuit)Random.Range(0, 2);
+        else
+            cardSuit = (CardSuit)cardColour;
         if (reveal)
             UpdateCardColour();
         else

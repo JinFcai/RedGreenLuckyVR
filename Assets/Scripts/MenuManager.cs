@@ -39,7 +39,7 @@ public class MenuManager : MonoBehaviourPunCallbacks
 
     public int playerRoomSize = 1;
 
-    string playerName;
+    //string playerName;
 
     private void Awake()
     {
@@ -95,6 +95,9 @@ public class MenuManager : MonoBehaviourPunCallbacks
     {
         PhotonNetwork.LoadLevel(1);
     }
+    public void InputQuit() {
+        Application.Quit();
+    }
     #endregion
 
 
@@ -135,14 +138,14 @@ public class MenuManager : MonoBehaviourPunCallbacks
     {
 
         SetActiveMenu(mainMenu);
-        Debug.Log("Joined Lobby");
+        //Debug.Log("Joined Lobby");
         PhotonNetwork.NickName = "Player " + Random.Range(0, 100).ToString();
     }
     public override void OnJoinedRoom()
     {
         //UpdateRoomPlayerCount();
 
-        Debug.Log("Joined room");
+        //Debug.Log("Joined room");
         SetActiveMenu(roomMenu);
         RoomNameTxt.text = PhotonNetwork.CurrentRoom.Name;
         Player[] players = PhotonNetwork.PlayerList;
@@ -167,7 +170,7 @@ public class MenuManager : MonoBehaviourPunCallbacks
         {
             Destroy(trans.gameObject);
         }
-        Debug.Log("roomList: " + roomList.Count);
+        //Debug.Log("roomList: " + roomList.Count);
         for (int i = 0; i < roomList.Count; i++)
         {
             if (roomList[i].RemovedFromList)
