@@ -20,14 +20,19 @@ public class Card
             UpdateCardColour();
         else
             cardImg.color = Color.gray;
-
     }
-
+    /// <summary>
+    /// Display card colour
+    /// </summary>
     public void UpdateCardColour()
     {
         cardImg.color = cardSuit == CardSuit.Red ? Color.red : Color.green;
-    }
-    public void RefreshCard(bool reveal = true, int cardColour = -1)
+    }/// <summary>
+    /// Draw a new card randomizing or set color of red or green,
+    /// </summary>
+    /// <param name="reveal">show gray if not revealed</param>
+    /// <param name="cardColour">prevent randomization and set the card directly to set colour</param>
+    public void DrawNewCard(bool reveal = true, int cardColour = -1)
     {
         if (cardColour == -1)
             cardSuit = (CardSuit)Random.Range(0, 2);

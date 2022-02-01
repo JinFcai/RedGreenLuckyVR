@@ -6,27 +6,21 @@ using Photon.Realtime;
 
 public class ChipStack : MonoBehaviourPunCallbacks
 {
-
     [SerializeField] public Renderer objRenderer;
+    //public void SetColour(Color colour)
+    //{
+    //    objRenderer.material = new Material(objRenderer.material);
+    //    objRenderer.material.color = colour;
+    //}
 
-    void Start()
-    {
-        //objRenderer = GetComponent<Renderer>();
-    }
-    public void SetColour(Color colour)
-    {
-        objRenderer.material = new Material(objRenderer.material);
-        objRenderer.material.color = colour;
-    }
-
-    public void SetMaterial(Material _mat)
-    {
-        if(objRenderer.material != _mat)
-            objRenderer.material = _mat;
-    }
-    public void ToggleGameObj(bool isOn) {
-        gameObject.SetActive(isOn);
-    }
+    //public void SetMaterial(Material _mat)
+    //{
+    //    if(objRenderer.material != _mat)
+    //        objRenderer.material = _mat;
+    //}
+    //public void ToggleGameObj(bool isOn) {
+    //    gameObject.SetActive(isOn);
+    //}
     
 
 }

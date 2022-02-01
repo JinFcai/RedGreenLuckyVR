@@ -1,11 +1,7 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Events;
-using TMPro;
 using UnityEngine.UI;
 using Photon.Pun;
-using Photon.Realtime;
 
 
 public class CardHandler : MonoBehaviourPunCallbacks
@@ -18,7 +14,6 @@ public class CardHandler : MonoBehaviourPunCallbacks
 
     public virtual void Init() {
         GameManager.Instance.OnGameReset.AddListener(GameReset);
-        GameManager.Instance.OnBetRoundEnd.AddListener(BetRoundEnd);
     }
     protected virtual void Awake() {
     }
@@ -26,9 +21,6 @@ public class CardHandler : MonoBehaviourPunCallbacks
        
     }
     protected virtual void GameReset() { }
-
-    protected virtual void BetRoundEnd() { }
-
     public CardSuit GetWinningSuit(int red, int green) {
         return (red > green) ? CardSuit.Red : CardSuit.Green;
     }
@@ -65,7 +57,7 @@ public class CardHandler : MonoBehaviourPunCallbacks
         greenCount = 0;
         for (int i = 0; i < cardList.Count; i++)
         {
-            cardList[i].RefreshCard(revealCards);
+            cardList[i].DrawNewCard(revealCards);
             redGreen[i] = (int)cardList[i].cardSuit;
             if (cardList[i].cardSuit == CardSuit.Red)
                 redCount++;

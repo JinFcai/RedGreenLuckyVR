@@ -1,46 +1,21 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using TMPro;
 using UnityEngine.UI;
 using Photon.Pun;
 using Photon.Realtime;
-using System.Linq;
-using UnityEngine.SceneManagement;
 public class GameManager : MonoBehaviourPunCallbacks
 {
-    [System.Serializable]
-    public class Chip
-    {
-        public int chipValue;
-        public Color chipColour;
-        [HideInInspector] public Material chipMaterial;
-        public void InitMaterial(Material cloneMaterial)
-        {
-            chipMaterial = new Material(cloneMaterial);
-            chipMaterial.color = chipColour;
-        }
-        public Chip(int _chipValue, Color _chipColour)
-        {
-            chipValue = _chipValue;
-            chipColour = _chipColour;
-        }
-    }
     public static GameManager Instance;
     public Image cardIMG;
-    [SerializeField] Material chipMaterial;
     [SerializeField] TextMeshProUGUI resultTxt;
     public UnityEvent OnGameReset;
-    public UnityEvent OnBetRoundEnd;
 
 
     [Header("dealer")]
     public int dealerDrawCount;
     public Dealer dealer;
-    public List<Chip> chipList = new List<Chip>();
-    public float revealCardCount = 2;
-    float currentRevealCount = 0;
 
     [Header("Player")]
     public int startChipCount = 100;
@@ -48,8 +23,6 @@ public class GameManager : MonoBehaviourPunCallbacks
     public int playerDrawCount = 3;
     public CardPlayer myCardPlayer;
     public List<TablePlayer> tableList;
-
-    string winnerNames;
     int playersRdy = 0;
 
     List<Player> joinedPlayer = new List<Player>();
@@ -68,17 +41,11 @@ public class GameManager : MonoBehaviourPunCallbacks
         dealer.Init();
 
         myCardPlayer.Init();
-        foreach (Chip c in chipList)
-        {
-            c.InitMaterial(chipMaterial);
-        }
     }
-
     private void Start()
     {
         photonView.RPC(nameof(RPCPlayerJoinedGame), RpcTarget.AllBuffered, PhotonNetwork.LocalPlayer);
     }
-
     /// <summary>
     /// When player leaves the room, remove player from list, reset the table, and check if bets are ready.
     /// </summary>
@@ -181,25 +148,10 @@ public class GameManager : MonoBehaviourPunCallbacks
             playersRdy++;
         if (playersRdy >= joinedPlayer.Count)
         {
-            if (currentRevealCount < revealCardCount)
-            {
-                //Debug.Log("master end bet round");
-                photonView.RPC(nameof(RPCBetRoundEnd), RpcTarget.All);
-            }
-            else
-            {
-                photonView.RPC(nameof(RPCCheckBetResultPhase), RpcTarget.All);
-            }
+            photonView.RPC(nameof(RPCCheckBetResultPhase), RpcTarget.All);
             playersRdy = 0;
         }
         //CheckBetResultPhase();
-    }
-    [PunRPC]
-    void RPCBetRoundEnd()
-    {
-        currentRevealCount++;
-        dealer.FlipCard();
-        OnBetRoundEnd.Invoke();
     }
     /// <summary>
     /// Check win lose condition, reset the game in 3 seconds after check
@@ -210,15 +162,12 @@ public class GameManager : MonoBehaviourPunCallbacks
         if (myCardPlayer.tablePlayer == null)
             return;
         dealer.RevealAllCards();
-        if (myCardPlayer.isFold)
-            resultTxt.text = "You Folded";
         if (myCardPlayer.CheckWinLose())
             resultTxt.text = "You Win";
         else
             resultTxt.text = "You Lose!";
 
         isMatchStarted = false;
-        currentRevealCount = 0;
         Invoke(nameof(ClientGameReset), 3);
     }
     void ClientGameReset()
